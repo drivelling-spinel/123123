@@ -16,10 +16,12 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %include "lmacros3.mac"
 %include "AMIS.MAC"
 
+        %idefine TSRNAME "123123"
+
 	defaulting
 
 	verdef TSR,C, 1,00		; Version number of last compatible
-	verdef TSR,P, 1,20		; Private version
+        verdef TSR,P, 0,01              ; Private version
 
 	numdef PSPRELOC, 1		; relocate PSP
 	numdef UPXPAD, 0		; pad executable to >=3062 bytes for UPX
@@ -335,6 +337,37 @@ scancl:			; bp = selected options
 
 	xchg bh, bl
 	mov word [trymultiplexnumber], bx
+	dec si
+	retn
+
+
+.limnumber:
+	lodsb
+	cmp al, '='
+	je @FF
+	cmp al, ':'
+	je @FF
+
+	db __TEST_IMM8
+@@:
+	lodsb
+	cmp al, 9
+	je @B
+	cmp al, 32
+	je @B
+	jb .invalid
+
+	db __TEST_IMM8
+@@:
+	lodsb
+	call getnybble
+	jc .invalid
+	xor bx, bx
+	mov bl, al
+	lodsb
+@@:
+
+	mov byte [lim_to_set], bl
 	dec si
 	retn
 
@@ -1171,11 +1204,11 @@ install:		; ds = handler segment inside cs
 	mov ah, 4Dh		; the only function I found that doesn't need much setup or cleanup
 	stc			; but that uses MS-DOS 2.x error reporting. clears CF (Int21.30 does not)
 	int 21h
-	jnc .dosgood		; it is MS-DOS 2.x+ or compatible -->
+;	jnc .dosgood		; it is MS-DOS 2.x+ or compatible -->
+  jmp .dosgood    ; it might as well be DOSBox, let's see
 	mov dx, msg.dosbad
 	jmp abort_msg
 .dosgood:
-
 	xor ax, ax
 	xchg ax, word [ cs:2Ch ]; set PSP field to zero
 	mov es, ax
@@ -1467,6 +1500,7 @@ install:		; ds = handler segment inside cs
 .highloaded:
 	call disp_msg		; "[high ]loaded using " "xxxx bytes."
 	mov ds, ax		; ds = allocated block
+	push ds
 %if 0
  %if 0
 	pop ax			; restore copied handler's size in words
@@ -1481,6 +1515,20 @@ install:		; ds = handler segment inside cs
 %endif
 	mov al, byte [amisnum]
 	call disp_amisnum
+
+  call arm_rtc
+  pop ds
+  mov al, byte [cs:lim_to_set]
+  test al, al
+  jnz .non_zero_lim
+  mov al, 10
+.non_zero_lim:
+  cmp al, 2
+  jge .big_enough_lim
+  mov al, 2
+.big_enough_lim:
+  mov byte [i9.lim], al
+
 	jmp ..@exit		; done if we ever were -->
 
 
@@ -1907,7 +1955,43 @@ disp_ax_dec:			; ax (no leading zeros)
 		retn
 %endif
 
-	align 2, db 0
+arm_rtc:
+  cli
+  mov al, 8bh
+  out 70h, al
+  in al, 71h
+  mov bx, ax
+  test bl, 40h
+  jz .armrtc
+  mov dx, msg.armed_rtc
+  call disp_msg
+  jmp .donertc
+
+.armrtc:  
+  or bl, 40h
+  mov al, 8bh
+  out 70h, al
+  mov al, bl
+  out 71h, al
+
+  mov al, 8ah
+  out 70h, al
+  in al, 71h
+  mov bx, ax
+  and bl, 0f0h
+  or bl, 0eh
+  mov al, 8ah
+  out 70h, al
+  mov al, bl
+  out 71h, al
+  
+  mov dx, msg.done_rtc
+  call disp_msg
+.donertc:  
+  sti
+  retn
+
+  	align 2, db 0
 firstumcb:	dw 9FFFh			; guess of where UMBs start (A000h+)
 trymultiplexnumber:
 		dw -1		; low byte = 0 if set
@@ -1940,6 +2024,10 @@ parameters:
 	dw scancl.set_in_bp, _uninstall
 	db "R"
 	dw scancl.set_in_bp, _uninstall
+	db "X"
+	dw scancl.multiplexnumber, 0
+	db "L"
+	dw scancl.limnumber, 0
 	db 0FFh			; table end marker
 			; The help switches are not in this table (and neither in the option
 			; flags) because on invalid switches, we'll show the help anyway.
@@ -1971,6 +2059,7 @@ j_flags:
 %endif
 
 old_j_switch:	db -1
+lim_to_set: db 7
 
 	align 16
 	endarea transient
@@ -1999,10 +2088,11 @@ msg:
 	fill 8,32,db "ecm"	; vendor
 	fill 8,32,db "lDebug"	; product
 			; These strings are international.
-.mcbname:	fill 8,0,db "TSR"
-.name:		db "TSR example ",TSR_VERP_STR,": ",36
+.mcbname:       fill 8,0,db TSRNAME
+.name:          db TSRNAME," ",TSR_VERP_STR,": ",36
+.armed_rtc:     db "RTC clock interrupts already enabled. Not touching.",10,13,36
+.done_rtc:      db "RTC clock configuration completed.",10,13,36
 	%include "messages.asm"
-
 	endarea msg
 
 %if _UPXPAD && (transient_size + resident_size + msg_size) < 3062
