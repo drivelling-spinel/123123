@@ -1,0 +1,155 @@
+\cfg{chapter}{Section}
+
+\cfg{text-filename}{tsr.txt}
+\cfg{text-chapter-numeric}{true}
+\cfg{text-indent-preamble}{false}
+\cfg{text-quotes}{"}{"}
+\cfg{text-indent}{4}
+\cfg{text-width}{72}
+
+\cfg{html-chapter-numeric}{true}
+\cfg{html-suppress-address}{true}
+\cfg{html-single-filename}{tsr.htm}
+\cfg{html-leaf-level}{0}
+\cfg{html-template-fragment}{%k}{%b}
+\cfg{html-head-end}{<meta name="viewport" content="width=device-width, initial-scale=1.0">}
+\cfg{html-leaf-contains-contents}{true}
+\cfg{html-heading-hashtag-links}{true}
+
+\cfg{pdf-filename}{tsr.pdf}
+
+\cfg{ps-filename}{tsr.ps}
+
+\cfg{info-filename}{tsr.info}
+
+\cfg{chm-filename}{tsr.chm}
+
+\cfg{winhelp-filename}{tsr.hlp}
+
+\cfg{man-filename}{tsr.7}
+\cfg{man-identity}{tsr}{7}{2023}{}{C. Masloch}
+
+\title TSR manual
+
+\copyright 2023 by C. Masloch.
+Usage of the works is permitted provided that this
+instrument is retained with the works, so that any entity
+that uses the works is notified of this instrument.
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+
+This document has been compiled on \date{%Y-%m-%d}.
+
+
+\C{switches} Switches
+
+The switches described here are common to all of the following TSRs:
+
+\b TSR example (repo tsr)
+
+\b RxANSI
+
+\b SEEKEXT
+
+\b lClock
+
+\b FDAPM (ecm's fork) IDLEDPMS
+
+\b KEEPHOOK (/U switch has multiple uses)
+
+
+\H{switch-u} Switch /U or /R - Uninstall (Remove)
+
+Attempts to uninstall a resident instance of the program.
+This requires all downlinks referencing
+interrupt handlers owned by this instance
+to be reachable.
+Reachable means that the handlers are the topmost handlers,
+or a chain of IBM Interrupt Sharing Protocol (IISP) headers
+stretches from the topmost handlers to the resident instance's,
+or a hidden chain of IISP headers does which is
+found by searching the interrupt lists of other resident
+AMIS multiplexers.
+
+If the downlinks are not all reachable then
+uninstallation is aborted.
+Usually, this condition is detected before actually
+uninstalling any handlers, so the resident instance
+is not "half way uninstalled" if this happens.
+
+
+\H{switch-o} Switch /O - Apply options only, do not install
+
+Specifying this switch will abort the program
+in case there is not yet a resident instance installed.
+So the program will never install itself resident if this switch is used.
+Must not be used along with the /N switch.
+
+
+\H{switch-n} Switch /N - Install new instance even if already resident
+
+With this switch an already resident instance is ignored
+and the program installs itself resident, as if
+it didn't detect a resident instance.
+This switch has no effect if in fact no resident instance is installed yet.
+Must not be used along with the /O switch.
+
+
+\H{switch-x} Switch /X= - Specify preferred multiplex number
+
+This switch must be followed by a one-digit or two-digit
+hexadecimal number.
+The specified number is used as the preferred multiplex number
+in all scans for AMIS multiplex numbers.
+This includes the detection of
+the debugger (for the Update IISP Header function),
+the detection of a resident instance of the TSR,
+as well as the search for an unused multiplex number
+for installation of the TSR.
+
+If no \cw{/X=} switch is specified
+then the search order for the debugger and the resident instance
+is 255 to 0, and the order for searching a free multiplex number
+is 0 to 255.
+
+If the switch is specified, the preferred number may be queried
+twice, once as the first number checked and then another time
+during the default search.
+
+
+\H{switch-j} Switch /J - Jettison features
+
+This switch allows to disable or force enabled certain features.
+Specifying a letter \cq{x} like in \cw{/Jx} or \cw{/J+x}
+will disable the corresponding feature.
+Conversely, \cw{/J-x} will force a feature enabled.
+
+These are the supported feature letters:
+
+\dt /JB
+
+\dd Disable installing handlers at the bottom of an IISP chain
+
+\dt /JD
+
+\dd Disable detecting the debugger for the Update IISP Header function
+
+\dt /JE
+
+\dd Disable calling an invalid exec subfunction during process relocation
+(interrupt 21h function 4B7Fh)
+
+\dt /JP
+
+\dd Disable process relocation during installation
+
+\dt /JS
+
+\dd Disable system check (interrupt 21h function 4Dh CY returning NC)
+
+\dt /JU
+
+\dd Disable DOS UMB allocation for installation
+
+
+Using the switch \cw{/J} without a feature letter is
+similar to using \cw{/JU} and disables UMB allocation.
